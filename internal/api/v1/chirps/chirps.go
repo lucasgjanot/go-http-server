@@ -6,7 +6,10 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
+	"github.com/lucasgjanot/go-http-server/internal/database"
 	httperrors "github.com/lucasgjanot/go-http-server/internal/errors"
 )
 
@@ -16,14 +19,19 @@ const (
 
 var BAD_WORDS []string = []string{"kerfuffle", "sharbert", "fornax"}
 
-type ValidateChirpResponse struct {
-	CleanedBody string `json:"cleaned_body"`
+type ChirpsResponse struct {
+	Id uuid.UUID `json:"id"`
+	Body string `json:"body"`
+	UserId uuid.UUID `json:"user_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
-func GetHandler() http.HandlerFunc {
+func PostHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		type parameters struct {
 			Body string `json:"body"`
+			UserId string `json:"user_id"`
 		}
 
 		decoder := json.NewDecoder(r.Body)
@@ -34,16 +42,39 @@ func GetHandler() http.HandlerFunc {
 			httperrors.Write(w, httperrors.BadRequestErr)
 			return
 		}
+		uid, err := uuid.Parse(params.UserId)
+		if err != nil {
+			httperrors.Write(w, httperrors.BadRequestErr)
+			return
+		}
 		if verr := validate(params.Body); verr != nil {
 			httperrors.Write(w,*verr)
 			return
 		}
 
+		newChirp, err := database.Chirps.CreateChirp(
+			r.Context(),
+			database.CreateChirpParams{
+				Body: replaceBadWords(params.Body),
+				UserID: uid,
+			},
+		)
+		if err != nil {
+			log.Printf("Error creating User: %s", err)
+			httperrors.Write(w, httperrors.InternalServerErr)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(ValidateChirpResponse{
-			CleanedBody: replaceBadWords(params.Body),
-		})
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(
+			ChirpsResponse{
+				Id: newChirp.ID,
+				Body: newChirp.Body,
+				UserId: newChirp.UserID,
+				CreatedAt: newChirp.CreatedAt,
+				UpdatedAt: newChirp.UpdatedAt,
+			},
+		)
 		
 	}
 }

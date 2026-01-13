@@ -2,49 +2,57 @@ package validatechirp_test
 
 import (
 	"bytes"
+	"strings"
+
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
-	validatechirp "github.com/lucasgjanot/go-http-server/internal/api/v1/validate_chirp"
+	"github.com/google/go-cmp/cmp"
+	chirps "github.com/lucasgjanot/go-http-server/internal/api/v1/chirps"
 	"github.com/lucasgjanot/go-http-server/internal/config"
 	httperrors "github.com/lucasgjanot/go-http-server/internal/errors"
 	"github.com/lucasgjanot/go-http-server/internal/router"
+	"github.com/lucasgjanot/go-http-server/internal/testhelpers"
 )
 
-func TestGetValidateChirp(t *testing.T) {
+func TestGetChirps(t *testing.T) {
 	cfg := config.NewConfig()
 	r := router.New(cfg)
-
+	testhelpers.InitTestDB(t)
 	ts := httptest.NewServer(r.Handler)
 	defer ts.Close()
+	if err := testhelpers.ResetDatabase(); err != nil {
+		t.Fatalf("Error reseting database: %s", err)
+	}
 
 	t.Run("Anonymous user", func(t *testing.T) {
-		t.Run("Valid chirpy", func(t *testing.T) {
+		user, _ := testhelpers.CreateUser("test@example.com")
+		t.Run("Valid chirp", func(t *testing.T) {
 			payload := map[string]string{
 				"body": "valid chirp",
+				"user_id": user.ID.String(),
 			}
 
-			body, err := json.Marshal(payload)
+			jsonData, err := json.Marshal(payload)
 			if err != nil {
 				t.Fatalf("failed to marshal payload: %v", err)
 			}
 
 			resp, err := http.Post(
-				ts.URL + "/api/validate_chirp",
+				ts.URL + "/api/chirps",
 				"application/json",
-				bytes.NewBuffer(body),
+				bytes.NewBuffer(jsonData),
 			)
 			if err != nil {
 				t.Fatalf("Request failed: %s", err)
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode != http.StatusOK {
-				t.Fatalf("Expected Status 200 got: %d", resp.StatusCode)
+			if resp.StatusCode != http.StatusCreated {
+				t.Fatalf("Expected Status 201 got: %d", resp.StatusCode)
 			}
 
 			data, err := io.ReadAll(resp.Body)
@@ -52,36 +60,45 @@ func TestGetValidateChirp(t *testing.T) {
 				t.Fatalf("Error while reading body: %s", err)
 			}
 			
-			respBody := validatechirp.ValidateChirpResponse{}
+			respBody := chirps.ChirpsResponse{}
 			if err := json.Unmarshal(data, &respBody); err != nil {
 				t.Fatalf("Error while decoding json: %s", err)
 			}
 
-			if respBody.CleanedBody != "valid chirp" {
-				t.Fatalf("Expected respBody.CleanedBody to be 'valid chirp', got: %v", respBody.CleanedBody)
+			expected := chirps.ChirpsResponse{
+				Id: respBody.Id,
+				Body: "valid chirp",
+				UserId: user.ID,
+				CreatedAt: respBody.CreatedAt,
+				UpdatedAt: respBody.UpdatedAt,
+			}
+
+			if diff := cmp.Diff(expected, respBody); diff != "" {
+				t.Fatalf("mismatch (-want +got):\n%s", diff)
 			}
 		}) 
 		t.Run("Chirp is to long", func(t *testing.T) {
 			payload := map[string]string{
-				"body": strings.Repeat("a", validatechirp.MAX_CHARACTERS+1),
+				"body": strings.Repeat("a", chirps.MAX_CHARACTERS+1),
+				"user_id": user.ID.String(),
 			}
 
-			body, err := json.Marshal(payload)
+			jsonData, err := json.Marshal(payload)
 			if err != nil {
 				t.Fatalf("failed to marshal payload: %v", err)
 			}
 
 			resp, err := http.Post(
-				ts.URL + "/api/validate_chirp",
+				ts.URL + "/api/chirps",
 				"application/json",
-				bytes.NewBuffer(body),
+				bytes.NewBuffer(jsonData),
 			)
 			if err != nil {
 				t.Fatalf("Request failed: %s", err)
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode != 400 {
+			if resp.StatusCode != http.StatusBadRequest {
 				t.Fatalf("Expected Status 400 got: %d", resp.StatusCode)
 			}
 
@@ -102,6 +119,7 @@ func TestGetValidateChirp(t *testing.T) {
 		t.Run("Chirp is empty", func(t *testing.T) {
 			payload := map[string]string{
 				"body": "",
+				"user_id": user.ID.String(),
 			}
 
 			body, err := json.Marshal(payload)
@@ -110,7 +128,7 @@ func TestGetValidateChirp(t *testing.T) {
 			}
 
 			resp, err := http.Post(
-				ts.URL + "/api/validate_chirp",
+				ts.URL + "/api/chirps",
 				"application/json",
 				bytes.NewBuffer(body),
 			)
@@ -137,9 +155,10 @@ func TestGetValidateChirp(t *testing.T) {
 				t.Fatalf("Expected respBody.Message to be 'Chirp body cannot be empty', got: %v", respBody.Message)
 			}
 		}) 
-		t.Run("Total match bad word", func(t *testing.T) {
+		t.Run("userId is empty", func(t *testing.T) {
 			payload := map[string]string{
-				"body": "totalMatch, kerfuffle",
+				"body": "valid body",
+				"user_id": "",
 			}
 
 			body, err := json.Marshal(payload)
@@ -148,7 +167,7 @@ func TestGetValidateChirp(t *testing.T) {
 			}
 
 			resp, err := http.Post(
-				ts.URL + "/api/validate_chirp",
+				ts.URL + "/api/chirps",
 				"application/json",
 				bytes.NewBuffer(body),
 			)
@@ -157,8 +176,8 @@ func TestGetValidateChirp(t *testing.T) {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode != http.StatusOK {
-				t.Fatalf("Expected Status 200 got: %d", resp.StatusCode)
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("Expected Status 400 got: %d", resp.StatusCode)
 			}
 
 			data, err := io.ReadAll(resp.Body)
@@ -166,18 +185,66 @@ func TestGetValidateChirp(t *testing.T) {
 				t.Fatalf("Error while reading body: %s", err)
 			}
 			
-			respBody := validatechirp.ValidateChirpResponse{}
+			respBody := httperrors.ErrorResponse{}
 			if err := json.Unmarshal(data, &respBody); err != nil {
 				t.Fatalf("Error while decoding json: %s", err)
 			}
 
-			if respBody.CleanedBody != "totalMatch, ****" {
-				t.Fatalf("Expected respBody.CleanedBody to be 'totalMatch, ****', got: %v", respBody.CleanedBody)
+			if respBody.Message != "Bad Request Error" {
+				t.Fatalf("Expected respBody.Message to be 'Bad Request Error', got: %v", respBody.Message)
+			}
+		}) 
+		t.Run("Total match bad word", func(t *testing.T) {
+			payload := map[string]string{
+				"body": "totalMatch, kerfuffle",
+				"user_id": user.ID.String(),
+			}
+
+			jsonData, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatalf("failed to marshal payload: %v", err)
+			}
+
+			resp, err := http.Post(
+				ts.URL + "/api/chirps",
+				"application/json",
+				bytes.NewBuffer(jsonData),
+			)
+			if err != nil {
+				t.Fatalf("Request failed: %s", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusCreated {
+				t.Fatalf("Expected Status 201 got: %d", resp.StatusCode)
+			}
+
+			data, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("Error while reading body: %s", err)
+			}
+			
+			respBody := chirps.ChirpsResponse{}
+			if err := json.Unmarshal(data, &respBody); err != nil {
+				t.Fatalf("Error while decoding json: %s", err)
+			}
+
+			expected := chirps.ChirpsResponse{
+				Id: respBody.Id,
+				Body: "totalMatch, ****",
+				UserId: user.ID,
+				CreatedAt: respBody.CreatedAt,
+				UpdatedAt: respBody.UpdatedAt,
+			}
+
+			if diff := cmp.Diff(expected, respBody); diff != "" {
+				t.Fatalf("mismatch (-want +got):\n%s", diff)
 			}
 		}) 
 		t.Run("Different case bad word", func(t *testing.T) {
 			payload := map[string]string{
 				"body": "totalMatch, kerFuffle",
+				"user_id": user.ID.String(),
 			}
 
 			body, err := json.Marshal(payload)
@@ -186,7 +253,7 @@ func TestGetValidateChirp(t *testing.T) {
 			}
 
 			resp, err := http.Post(
-				ts.URL + "/api/validate_chirp",
+				ts.URL + "/api/chirps",
 				"application/json",
 				bytes.NewBuffer(body),
 			)
@@ -195,8 +262,8 @@ func TestGetValidateChirp(t *testing.T) {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode != http.StatusOK {
-				t.Fatalf("Expected Status 200 got: %d", resp.StatusCode)
+			if resp.StatusCode != http.StatusCreated {
+				t.Fatalf("Expected Status 201 got: %d", resp.StatusCode)
 			}
 
 			data, err := io.ReadAll(resp.Body)
@@ -204,13 +271,21 @@ func TestGetValidateChirp(t *testing.T) {
 				t.Fatalf("Error while reading body: %s", err)
 			}
 			
-			respBody := validatechirp.ValidateChirpResponse{}
+			respBody := chirps.ChirpsResponse{}
 			if err := json.Unmarshal(data, &respBody); err != nil {
 				t.Fatalf("Error while decoding json: %s", err)
 			}
 
-			if respBody.CleanedBody != "totalMatch, ****" {
-				t.Fatalf("Expected respBody.CleanedBody to be 'totalMatch, ****', got: %v", respBody.CleanedBody)
+			expected := chirps.ChirpsResponse{
+				Id: respBody.Id,
+				Body: "totalMatch, ****",
+				UserId: user.ID,
+				CreatedAt: respBody.CreatedAt,
+				UpdatedAt: respBody.UpdatedAt,
+			}
+
+			if diff := cmp.Diff(expected, respBody); diff != "" {
+				t.Fatalf("mismatch (-want +got):\n%s", diff)
 			}
 		}) 
 	})

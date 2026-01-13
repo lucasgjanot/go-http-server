@@ -1,6 +1,7 @@
 package testhelpers
 
 import (
+	"context"
 	"log"
 	"os"
 	"sync"
@@ -26,4 +27,16 @@ func InitTestDB(t *testing.T) {
 		dsn := os.Getenv("DB_URL")
 		database.Init(dsn)
 	})
+}
+
+func CreateUser(email string) (database.User, error) {
+	return database.Users.CreateUser(context.Background(), email)
+}
+
+func ResetDatabase() error {
+	_, err := database.Users.DeleteAllUsers(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
 }

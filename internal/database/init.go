@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"sync"
@@ -8,9 +9,19 @@ import (
 	_ "github.com/lib/pq"
 )
 
+type ChirpsInterface interface {
+	CreateChirp(ctx context.Context, args CreateChirpParams) (Chirp, error)
+}
+
+type UsersInterface interface {
+	CreateUser(ctx context.Context, email string) (User, error)
+	DeleteAllUsers(ctx context.Context) ([]User, error)
+}
+
 var (
 	DB    *sql.DB
-	Users *Queries
+	Chirps ChirpsInterface
+	Users UsersInterface
 	once sync.Once
 
 )
@@ -28,9 +39,11 @@ func Init(dsn string) {
 		if err := DB.Ping(); err != nil {
 			log.Fatalf("failed to ping database: %v", err)
 		}
-	
+		
+		queries := New(DB)
 		// create a queries instance
-		Users = New(DB)
+		Users = queries
+		Chirps = queries
 	})
 }
 
