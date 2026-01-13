@@ -1,9 +1,17 @@
 package config
 
-import "sync/atomic"
+import (
+	"os"
+	"sync/atomic"
+)
 
 type Config struct {
 	Metrics *Metrics
+	Database *Database
+}
+
+type Database struct {
+	DbURL string
 }
 
 type Metrics struct {
@@ -13,6 +21,9 @@ type Metrics struct {
 func NewConfig() *Config {
 	return &Config{
 		Metrics: &Metrics{},
+		Database: &Database{
+			DbURL: os.Getenv("DB_URL"),
+		},
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"github.com/lucasgjanot/go-http-server/internal/api/v1/healthz"
 	"github.com/lucasgjanot/go-http-server/internal/api/v1/metrics"
 	"github.com/lucasgjanot/go-http-server/internal/api/v1/reset"
+	"github.com/lucasgjanot/go-http-server/internal/api/v1/users"
 	validatechirp "github.com/lucasgjanot/go-http-server/internal/api/v1/validate_chirp"
 	"github.com/lucasgjanot/go-http-server/internal/config"
 	"github.com/lucasgjanot/go-http-server/internal/middleware"
@@ -31,6 +32,7 @@ func New(cfg *config.Config) *Router{
 	mux.HandleFunc("POST /admin/reset", reset.PostHandler(cfg.Metrics))
 	mux.HandleFunc("GET /api/healthz", healthz.GetHandler())
 	mux.HandleFunc("POST /api/validate_chirp", validatechirp.GetHandler())
+	mux.HandleFunc("POST /api/users", users.PostHandler())
 
 	return &Router{
 		Handler: mux,

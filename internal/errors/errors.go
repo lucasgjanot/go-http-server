@@ -12,21 +12,30 @@ type ErrorResponse struct {
 	Action string `json:"action"`
 }
 
-var InternalServerErr ErrorResponse = ErrorResponse{
-	Name: "InternalServerErr",
-	StatusCode: 500,
-	Message: "Something went wrong",
-	Action: "Try again later",
-}
-var BadRequestErr ErrorResponse = ErrorResponse{
-	Name: "BadRequestErr",
-	StatusCode: 400,
-	Message: "Bad Request Error",
-	Action: "Verify sent data",
-}
 
+var (
+	InternalServerErr = ErrorResponse{
+		Name: "InternalServerErr",
+		StatusCode: http.StatusInternalServerError,
+		Message: "Something went wrong",
+		Action: "Try again later",
+	}
 
+	BadRequestErr = ErrorResponse{
+		Name: "BadRequestErr",
+		StatusCode: http.StatusBadRequest,
+		Message: "Bad Request Error",
+		Action: "Verify sent data",
+	}
 
+	ServiceUnavailableErr = ErrorResponse{
+		Name: "ServiceUnavailableErr",
+		StatusCode: http.StatusServiceUnavailable,
+		Message: "Bad Request Error",
+		Action: "Verify sent data",
+	}
+)
+	
 func Write(w http.ResponseWriter, err ErrorResponse) {
 	w.Header().Set("Content-Type", "applicaton/json")
 	w.WriteHeader(err.StatusCode)

@@ -8,10 +8,16 @@ import (
 
 	"github.com/lucasgjanot/go-http-server/internal/config"
 	"github.com/lucasgjanot/go-http-server/internal/router"
+	"github.com/lucasgjanot/go-http-server/internal/testhelpers"
 )
 
 func TestPostReset(t *testing.T) {
+	t.Setenv(
+		"DB_URL",
+		"postgres://postgres:postgres@localhost:5432/chirpy?sslmode=disable",
+	)
 	cfg := config.NewConfig()
+	testhelpers.InitTestDB(t)
 	srv := router.New(cfg)
 	ts := httptest.NewServer(srv.Handler)
 	defer ts.Close()
