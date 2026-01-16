@@ -3,11 +3,9 @@ package healthz_test
 import (
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/lucasgjanot/go-http-server/internal/config"
-	"github.com/lucasgjanot/go-http-server/internal/router"
+	"github.com/lucasgjanot/go-http-server/internal/testhelpers"
 )
 
 type healthzResponse struct {
@@ -15,15 +13,11 @@ type healthzResponse struct {
 }
 
 func TestGetHealthz(t *testing.T) {
-	cfg := config.NewConfig()
-	srv := router.New(cfg)
-
-	ts := httptest.NewServer(srv.Handler)
-	defer ts.Close()
+	test_url := testhelpers.InitTest(t)
 
 	t.Run("GET /api/healthz", func(t *testing.T) {
 		t.Run("Anonymous user", func(t *testing.T) {
-			resp, err := http.Get(ts.URL + "/api/healthz")
+			resp, err := http.Get(test_url + "/api/healthz")
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
 			}

@@ -7,15 +7,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lucasgjanot/go-http-server/internal/auth"
 	"github.com/lucasgjanot/go-http-server/internal/database"
 	httperrors "github.com/lucasgjanot/go-http-server/internal/errors"
 )
 
 type UserResponse struct {
-	ID        uuid.UUID `json:"id"`
+	Id        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
+	
 }
 
 func PostHandler() http.HandlerFunc {
@@ -26,17 +28,33 @@ func PostHandler() http.HandlerFunc {
 
 		type parameters struct {
 			Email string `json:"email"`
-		}
+			Password string `json:"password"`
 
+		}
+		
 		params := parameters{}
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&params); err != nil {
-			log.Printf("Error decoding parameters: %s", err)
 			httperrors.Write(w, httperrors.BadRequestErr) 
 			return
 		}
-
-		newUser, err := database.Users.CreateUser(r.Context(), params.Email)
+	
+		if len(params.Email) == 0 || len(params.Password) == 0 {
+			httperrors.Write(w, httperrors.BadRequestErr)
+			return
+		}
+		hashedPassword, err := auth.HashPassword(params.Password)
+		if err != nil {
+			log.Printf("Error in hashing password: %s", err)
+			httperrors.Write(w, httperrors.InternalServerErr)
+		}
+		newUser, err := database.Users.CreateUser(
+			r.Context(),
+			database.CreateUserParams{
+				Email: params.Email,
+				HashedPassword: hashedPassword,
+			},
+		)
 		if err != nil {
 			log.Printf("Error creating user: %v", err)
 			httperrors.Write(w, httperrors.InternalServerErr)
@@ -46,7 +64,7 @@ func PostHandler() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(UserResponse{
-			ID: newUser.ID,
+			Id: newUser.ID,
 			Email: newUser.Email,
 			CreatedAt: newUser.CreatedAt,
 			UpdatedAt: newUser.UpdatedAt,

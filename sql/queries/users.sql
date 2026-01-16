@@ -1,8 +1,8 @@
 -- name: CreateUser :one
 INSERT INTO
-    users (email)
+    users (email, hashed_password)
 VALUES
-    ($1)
+    ($1, $2)
 RETURNING
     *
 ;
@@ -11,4 +11,11 @@ RETURNING
 DELETE FROM
     users
 RETURNING *
+;
+
+-- name: GetUserByEmail :one
+SELECT * FROM
+    users
+WHERE
+    email = $1
 ;

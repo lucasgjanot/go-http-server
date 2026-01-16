@@ -1,4 +1,4 @@
-package validatechirp
+package chirps
 
 import (
 	"encoding/json"
@@ -27,6 +27,36 @@ type ChirpsResponse struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+func GetHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		chirps, err := database.Chirps.GetChirps(r.Context())
+		if err != nil {
+			log.Printf("Error getting chirps: %s", err)
+			httperrors.Write(w,httperrors.InternalServerErr)
+			return
+		}
+		if chirps == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode([]ChirpsResponse{})
+			return 
+		}
+		chirpsResponses := []ChirpsResponse{}
+		for _, chirp := range chirps {
+			chirpsResponses = append(chirpsResponses, ChirpsResponse{
+				Id: chirp.ID,
+				Body: chirp.Body,
+				UserId: chirp.ID,
+				CreatedAt: chirp.CreatedAt,
+				UpdatedAt: chirp.UpdatedAt,
+			})
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(chirpsResponses)
+	}
+}
 func PostHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		type parameters struct {

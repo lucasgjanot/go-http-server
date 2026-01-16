@@ -1,4 +1,4 @@
-package validatechirp_test
+package chirps_test
 
 import (
 	"bytes"
@@ -7,29 +7,19 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	chirps "github.com/lucasgjanot/go-http-server/internal/api/v1/chirps"
-	"github.com/lucasgjanot/go-http-server/internal/config"
 	httperrors "github.com/lucasgjanot/go-http-server/internal/errors"
-	"github.com/lucasgjanot/go-http-server/internal/router"
 	"github.com/lucasgjanot/go-http-server/internal/testhelpers"
 )
 
-func TestGetChirps(t *testing.T) {
-	cfg := config.NewConfig()
-	r := router.New(cfg)
-	testhelpers.InitTestDB(t)
-	ts := httptest.NewServer(r.Handler)
-	defer ts.Close()
-	if err := testhelpers.ResetDatabase(); err != nil {
-		t.Fatalf("Error reseting database: %s", err)
-	}
+func TestPostChirps(t *testing.T) {
+	test_url := testhelpers.InitTest(t)
 
 	t.Run("Anonymous user", func(t *testing.T) {
-		user, _ := testhelpers.CreateUser("test@example.com")
+		user, _ := testhelpers.CreateUser(testhelpers.NewUser{})
 		t.Run("Valid chirp", func(t *testing.T) {
 			payload := map[string]string{
 				"body": "valid chirp",
@@ -42,7 +32,7 @@ func TestGetChirps(t *testing.T) {
 			}
 
 			resp, err := http.Post(
-				ts.URL + "/api/chirps",
+				test_url + "/api/chirps",
 				"application/json",
 				bytes.NewBuffer(jsonData),
 			)
@@ -89,7 +79,7 @@ func TestGetChirps(t *testing.T) {
 			}
 
 			resp, err := http.Post(
-				ts.URL + "/api/chirps",
+				test_url + "/api/chirps",
 				"application/json",
 				bytes.NewBuffer(jsonData),
 			)
@@ -128,7 +118,7 @@ func TestGetChirps(t *testing.T) {
 			}
 
 			resp, err := http.Post(
-				ts.URL + "/api/chirps",
+				test_url + "/api/chirps",
 				"application/json",
 				bytes.NewBuffer(body),
 			)
@@ -167,7 +157,7 @@ func TestGetChirps(t *testing.T) {
 			}
 
 			resp, err := http.Post(
-				ts.URL + "/api/chirps",
+				test_url + "/api/chirps",
 				"application/json",
 				bytes.NewBuffer(body),
 			)
@@ -206,7 +196,7 @@ func TestGetChirps(t *testing.T) {
 			}
 
 			resp, err := http.Post(
-				ts.URL + "/api/chirps",
+				test_url + "/api/chirps",
 				"application/json",
 				bytes.NewBuffer(jsonData),
 			)
@@ -253,7 +243,7 @@ func TestGetChirps(t *testing.T) {
 			}
 
 			resp, err := http.Post(
-				ts.URL + "/api/chirps",
+				test_url + "/api/chirps",
 				"application/json",
 				bytes.NewBuffer(body),
 			)

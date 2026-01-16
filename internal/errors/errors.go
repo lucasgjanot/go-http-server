@@ -34,6 +34,19 @@ var (
 		Message: "Bad Request Error",
 		Action: "Verify sent data",
 	}
+
+	NotFoundErr = ErrorResponse{
+		Name: "NotFoundErr",
+		StatusCode: http.StatusNotFound,
+		Message: "Not Found",
+		Action: "Check search parameter",
+	}
+	UnauthorizedErr = ErrorResponse{
+		Name: "UnauthorizedErr",
+		StatusCode: http.StatusUnauthorized,
+		Message: "Incorrect email or password",
+		Action: "Check credentials",
+	}
 )
 	
 func Write(w http.ResponseWriter, err ErrorResponse) {

@@ -3,22 +3,16 @@ package metrics_test
 import (
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/lucasgjanot/go-http-server/internal/config"
-	"github.com/lucasgjanot/go-http-server/internal/router"
+	"github.com/lucasgjanot/go-http-server/internal/testhelpers"
 )
 
 func TestGetMetrics(t *testing.T) {
-	cfg := config.NewConfig()
-	srv := router.New(cfg)
-
-	ts := httptest.NewServer(srv.Handler)
-	defer ts.Close()
+	test_url := testhelpers.InitTest(t)
 	t.Run("Anonymous user", func(t *testing.T) {
-		resp, err := http.Get(ts.URL + "/admin/metrics")
+		resp, err := http.Get(test_url + "/admin/metrics")
 		if err != nil {
 			t.Fatalf("request failed: %v", err)
 		}

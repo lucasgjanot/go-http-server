@@ -6,16 +6,20 @@ import (
 	"log"
 	"sync"
 
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
 
 type ChirpsInterface interface {
 	CreateChirp(ctx context.Context, args CreateChirpParams) (Chirp, error)
+	GetChirps(ctx context.Context) ([]Chirp, error)
+	GetChirp(ctx context.Context, chirpId uuid.UUID) (Chirp, error)
 }
 
 type UsersInterface interface {
-	CreateUser(ctx context.Context, email string) (User, error)
+	CreateUser(ctx context.Context, args CreateUserParams) (User, error)
 	DeleteAllUsers(ctx context.Context) ([]User, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
 }
 
 var (
