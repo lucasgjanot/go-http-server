@@ -6,32 +6,53 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
-	"github.com/lucasgjanot/go-http-server/internal/api/v1/users"
+	"github.com/google/uuid"
 	"github.com/lucasgjanot/go-http-server/internal/auth"
 	"github.com/lucasgjanot/go-http-server/internal/database"
 	httperrors "github.com/lucasgjanot/go-http-server/internal/errors"
 )
 
-func PostHandler() http.HandlerFunc {
+type LoginResponse struct {
+	ID        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
+	Token     string    `json:"token"`
+	RefreshToken string `json:"refresh_token"`
+	IsChirpyRed bool `json:"is_chirpy_red"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+const (
+	JWTDefaultExpire = time.Hour
+	RefreshTokenExpires = 24 * 60 * time.Hour
+)
+
+
+func PostHandler(JWTSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		type Parameters struct {
-			Password string `json:"password"`
-			Email string `json:"Email"`
+			Password         string `json:"password"`
+			Email            string `json:"email"`
 		}
 
-		params := Parameters{}
+		var params Parameters
 		decoder := json.NewDecoder(r.Body)
-		
+
 		if err := decoder.Decode(&params); err != nil {
-			httperrors.Write(w, httperrors.BadRequestErr) 
+			httperrors.Write(w, httperrors.BadRequestErr)
 			return
 		}
 
-		if len(params.Password) == 0 || len(params.Email) == 0 {
-			httperrors.Write(w, httperrors.BadRequestErr) 
+		if params.Password == "" || params.Email == "" {
+			httperrors.Write(w, httperrors.BadRequestErr)
 			return
 		}
+
+		// expiration handling (seconds -> duration)
+		expire := JWTDefaultExpire
+
 
 		user, err := database.Users.GetUserByEmail(r.Context(), params.Email)
 		if err != nil {
@@ -43,26 +64,53 @@ func PostHandler() http.HandlerFunc {
 			return
 		}
 
-		check, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
+		ok, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
 		if err != nil {
-			log.Printf("Password check failed: %s", err)
+			log.Printf("password check failed: %v", err)
 			httperrors.Write(w, httperrors.InternalServerErr)
 			return
 		}
 
-		if !check {
+		if !ok {
 			httperrors.Write(w, httperrors.UnauthorizedErr)
+			return
+		}
+
+		jwtToken, err := auth.MakeJWT(user.ID, JWTSecret, expire)
+		if err != nil {
+			log.Printf("error creating jwt: %v", err)
+			httperrors.Write(w, httperrors.InternalServerErr)
+			return
+		}
+
+		refreshTokenString, _ := auth.MakeRefreshToken()
+		now := time.Now().UTC()
+		refreshToken, err := database.Auth.CreateRefreshToken(
+			r.Context(),
+			database.CreateRefreshTokenParams{
+				Token: refreshTokenString,
+				UserID: user.ID,
+				ExpiresAt: now.Add(RefreshTokenExpires),
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+		)
+		if err != nil {
+			log.Printf("error creating refreshtoken: %v", err)
+			httperrors.Write(w, httperrors.InternalServerErr)
 			return 
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(users.UserResponse{
-			Id: user.ID,
-			Email: user.Email,
+		_ = json.NewEncoder(w).Encode(LoginResponse{
+			ID:        user.ID,
+			Email:     user.Email,
+			Token:     jwtToken,
+			RefreshToken: refreshToken.Token,
+			IsChirpyRed: user.IsChirpyRed,
 			CreatedAt: user.CreatedAt,
 			UpdatedAt: user.UpdatedAt,
 		})
-		
 	}
 }

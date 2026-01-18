@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/joho/godotenv"
+	"github.com/lucasgjanot/go-http-server/internal/api/v1/login"
 	"github.com/lucasgjanot/go-http-server/internal/auth"
 	"github.com/lucasgjanot/go-http-server/internal/config"
 	"github.com/lucasgjanot/go-http-server/internal/database"
@@ -23,7 +24,7 @@ type NewUser struct {
 	Password string
 }
 
-func InitTest(t *testing.T) string {
+func InitTest(t *testing.T) (string, *config.Config) {
 	cfg := config.NewConfig()
 	r := router.New(cfg)
 
@@ -38,7 +39,7 @@ func InitTest(t *testing.T) string {
 	t.Cleanup(func() {
 		_ = ResetDatabase()
 	})
-	return ts.URL
+	return ts.URL, cfg
 }
 
 
@@ -117,4 +118,8 @@ func CreateChirp(args database.CreateChirpParams) (database.Chirp, error) {
 		context.Background(),
 		args,
 	)
+}
+
+func AuthenticateUser(user database.User, JWTSecret string) (string, error) {
+	return auth.MakeJWT(user.ID, JWTSecret, login.JWTDefaultExpire)
 }

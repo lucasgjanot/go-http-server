@@ -14,7 +14,7 @@ import (
 )
 
 func TestPostUsers(t *testing.T) {
-	test_url := testhelpers.InitTest(t)
+	test_url, _ := testhelpers.InitTest(t)
 	t.Run("Anonymous user", func(t *testing.T) {
 		t.Run("With valid email", func(t *testing.T) {
 			 payload := map[string]string{
@@ -54,6 +54,7 @@ func TestPostUsers(t *testing.T) {
 			expected := users.UserResponse{
 				Id: respBody.Id,
 				Email: "valid.email@example.com",
+				IsChirpyRed: false,
 				CreatedAt: respBody.CreatedAt,
 				UpdatedAt: respBody.UpdatedAt,
 			}

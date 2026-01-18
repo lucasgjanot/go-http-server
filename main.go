@@ -17,10 +17,22 @@ func main() {
 		env = "development"
 	}
 
-	err := godotenv.Load(".env." + env)
-	if err != nil {
-		log.Fatalf("No .env.%s file found", env)
+	var envFile string
+	if env == "production" {
+		envFile = ".env"
+	} else {
+		envFile = ".env." + env
 	}
+
+	// Load env file ONLY if it exists
+	if err := godotenv.Load(envFile); err != nil {
+		if env != "production" {
+			log.Fatalf("Error loading %s: %v", envFile, err)
+		}
+		// production: ignore missing file
+	}
+
+	log.Printf("Running in %s mode", env)
 
 	const filepathRoot = "./app"
 	const port = "8080"
@@ -30,11 +42,11 @@ func main() {
 	srv := router.New(cfg)
 
 	httpServer := &http.Server{
-		Addr: ":" + port,
+		Addr:    ":" + port,
 		Handler: srv.Handler,
 	}
-	
 
 	log.Printf("Serving on address: http://localhost:%s\n", port)
 	log.Fatal(httpServer.ListenAndServe())
 }
+

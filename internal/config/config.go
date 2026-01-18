@@ -8,6 +8,8 @@ import (
 type Config struct {
 	Metrics *Metrics
 	Database *Database
+	JWTSecret string
+	PolkaAPIKey string
 }
 
 type Database struct {
@@ -24,6 +26,8 @@ func NewConfig() *Config {
 		Database: &Database{
 			DbURL: os.Getenv("DB_URL"),
 		},
+		JWTSecret: os.Getenv("JWT_SECRET"),
+		PolkaAPIKey: os.Getenv("POLKA_KEY"),
 	}
 }
 

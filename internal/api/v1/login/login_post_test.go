@@ -8,13 +8,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/lucasgjanot/go-http-server/internal/api/v1/users"
+	"github.com/lucasgjanot/go-http-server/internal/api/v1/login"
 	httperrors "github.com/lucasgjanot/go-http-server/internal/errors"
 	"github.com/lucasgjanot/go-http-server/internal/testhelpers"
 )
 
 func TestPostLogin(t *testing.T) {
-	test_url := testhelpers.InitTest(t)
+	test_url, _ := testhelpers.InitTest(t)
 	user, _ :=  testhelpers.CreateUser(testhelpers.NewUser{
 		Email: "correct.email@example.com",
 		Password: "correctpassword",
@@ -48,18 +48,20 @@ func TestPostLogin(t *testing.T) {
 				t.Fatalf("Error while reading body: %s", err)
 			}
 
-			respBody := users.UserResponse{}
+			respBody := login.LoginResponse{}
 			if err := json.Unmarshal(data, &respBody); err != nil {
 				t.Fatalf("Error while decoding json: %s", err)
 			}
 
-			expected := users.UserResponse{
-				Id: user.ID,
+			expected := login.LoginResponse{
+				ID: user.ID,
 				Email: user.Email,
+				Token: respBody.Token,
+				RefreshToken: respBody.RefreshToken,
+				IsChirpyRed: respBody.IsChirpyRed,
 				CreatedAt: user.CreatedAt,
 				UpdatedAt: user.UpdatedAt,
 			}
-
 			if diff := cmp.Diff(expected, respBody); diff != "" {
 				t.Fatalf("mismatch (-want +got):\n%s", diff)
 			}

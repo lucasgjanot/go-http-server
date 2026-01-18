@@ -47,6 +47,12 @@ var (
 		Message: "Incorrect email or password",
 		Action: "Check credentials",
 	}
+	ForbiddenErr = ErrorResponse{
+		Name: "ForbiddenErr",
+		StatusCode: http.StatusForbidden,
+		Message: "not allowed",
+		Action: "Check permissions",
+	}
 )
 	
 func Write(w http.ResponseWriter, err ErrorResponse) {

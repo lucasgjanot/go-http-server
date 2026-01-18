@@ -38,6 +38,25 @@ func (q *Queries) CreateChirp(ctx context.Context, arg CreateChirpParams) (Chirp
 	return i, err
 }
 
+const deleteChirp = `-- name: DeleteChirp :one
+DELETE FROM chirps
+WHERE id = $1
+RETURNING id, body, user_id, created_at, updated_at
+`
+
+func (q *Queries) DeleteChirp(ctx context.Context, id uuid.UUID) (Chirp, error) {
+	row := q.db.QueryRowContext(ctx, deleteChirp, id)
+	var i Chirp
+	err := row.Scan(
+		&i.ID,
+		&i.Body,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getChirp = `-- name: GetChirp :one
 SELECT 
     id, body, user_id, created_at, updated_at
@@ -65,12 +84,59 @@ SELECT
     id, body, user_id, created_at, updated_at
 FROM 
     chirps
-ORDER BY 
-    created_at ASC
+ORDER BY
+	CASE WHEN $1::boolean THEN created_at END DESC,
+	CASE WHEN NOT $1::boolean THEN created_at END ASC
 `
 
-func (q *Queries) GetChirps(ctx context.Context) ([]Chirp, error) {
-	rows, err := q.db.QueryContext(ctx, getChirps)
+func (q *Queries) GetChirps(ctx context.Context, isDesc bool) ([]Chirp, error) {
+	rows, err := q.db.QueryContext(ctx, getChirps, isDesc)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Chirp
+	for rows.Next() {
+		var i Chirp
+		if err := rows.Scan(
+			&i.ID,
+			&i.Body,
+			&i.UserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getChirpsByUserId = `-- name: GetChirpsByUserId :many
+SELECT 
+    id, body, user_id, created_at, updated_at
+FROM 
+    chirps
+WHERE   
+    user_id = $1
+ORDER BY
+	CASE WHEN $2::boolean THEN created_at END DESC,
+	CASE WHEN NOT $2::boolean THEN created_at END ASC
+`
+
+type GetChirpsByUserIdParams struct {
+	UserID uuid.UUID
+	IsDesc bool
+}
+
+func (q *Queries) GetChirpsByUserId(ctx context.Context, arg GetChirpsByUserIdParams) ([]Chirp, error) {
+	rows, err := q.db.QueryContext(ctx, getChirpsByUserId, arg.UserID, arg.IsDesc)
 	if err != nil {
 		return nil, err
 	}

@@ -13,7 +13,7 @@ import (
 )
 
 func TestGetChirps(t *testing.T) {
-	test_url := testhelpers.InitTest(t)
+	test_url, _ := testhelpers.InitTest(t)
 
 	t.Run("Anonymous user", func(t *testing.T) {
 		user, _ := testhelpers.CreateUser(testhelpers.NewUser{})
@@ -55,14 +55,14 @@ func TestGetChirps(t *testing.T) {
 				{
 					Id: chirp1.ID,
 					Body: chirp1.Body,
-					UserId: chirp1.ID,
+					UserId: chirp1.UserID,
 					CreatedAt: chirp1.CreatedAt,
 					UpdatedAt: chirp1.UpdatedAt,
 				},
 				{
 					Id: chirp2.ID,
 					Body: chirp2.Body,
-					UserId: chirp2.ID,
+					UserId: chirp2.UserID,
 					CreatedAt: chirp2.CreatedAt,
 					UpdatedAt: chirp2.UpdatedAt,
 				},

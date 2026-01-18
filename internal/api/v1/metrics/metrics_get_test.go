@@ -10,7 +10,7 @@ import (
 )
 
 func TestGetMetrics(t *testing.T) {
-	test_url := testhelpers.InitTest(t)
+	test_url, _ := testhelpers.InitTest(t)
 	t.Run("Anonymous user", func(t *testing.T) {
 		resp, err := http.Get(test_url + "/admin/metrics")
 		if err != nil {

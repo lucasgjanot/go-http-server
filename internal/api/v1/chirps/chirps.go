@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lucasgjanot/go-http-server/internal/auth"
 	"github.com/lucasgjanot/go-http-server/internal/database"
 	httperrors "github.com/lucasgjanot/go-http-server/internal/errors"
 )
@@ -29,7 +30,31 @@ type ChirpsResponse struct {
 
 func GetHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		chirps, err := database.Chirps.GetChirps(r.Context())
+		var (
+			chirps []database.Chirp
+			err error
+		)
+
+		authorID := r.URL.Query().Get("author_id")
+		desc := r.URL.Query().Get("sort") == "desc"
+		if authorID == "" {
+			chirps, err = database.Chirps.GetChirps(r.Context(), desc)
+		} else {
+			parsedAuthorID, err := uuid.Parse(authorID)
+			if err != nil {
+				log.Printf("Error parsing uuid: %s", err)
+				httperrors.Write(w, httperrors.InternalServerErr)
+				return
+			}
+			chirps, err = database.Chirps.GetChirpsByUserId(
+				r.Context(),
+				database.GetChirpsByUserIdParams{
+					UserID: parsedAuthorID,
+					IsDesc: desc,
+				},
+			)
+		}
+		
 		if err != nil {
 			log.Printf("Error getting chirps: %s", err)
 			httperrors.Write(w,httperrors.InternalServerErr)
@@ -41,12 +66,13 @@ func GetHandler() http.HandlerFunc {
 			_ = json.NewEncoder(w).Encode([]ChirpsResponse{})
 			return 
 		}
+		
 		chirpsResponses := []ChirpsResponse{}
 		for _, chirp := range chirps {
 			chirpsResponses = append(chirpsResponses, ChirpsResponse{
 				Id: chirp.ID,
 				Body: chirp.Body,
-				UserId: chirp.ID,
+				UserId: chirp.UserID,
 				CreatedAt: chirp.CreatedAt,
 				UpdatedAt: chirp.UpdatedAt,
 			})
@@ -57,23 +83,28 @@ func GetHandler() http.HandlerFunc {
 		_ = json.NewEncoder(w).Encode(chirpsResponses)
 	}
 }
-func PostHandler() http.HandlerFunc {
+func PostHandler(JWTSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		type parameters struct {
 			Body string `json:"body"`
-			UserId string `json:"user_id"`
 		}
 
-		decoder := json.NewDecoder(r.Body)
-		params := parameters{}
-		err := decoder.Decode(&params)
+		token, err := auth.GetBearerToken(r.Header)
 		if err != nil {
-			log.Printf("Error decoding parameters: %s", err)
-			httperrors.Write(w, httperrors.BadRequestErr)
+			httperrors.Write(w, httperrors.UnauthorizedErr)
 			return
 		}
-		uid, err := uuid.Parse(params.UserId)
+		userID, err := auth.ValidateJWT(token, JWTSecret)
 		if err != nil {
+			httperrors.Write(w, httperrors.UnauthorizedErr)
+			return
+		}
+		
+		decoder := json.NewDecoder(r.Body)
+		params := parameters{}
+		err = decoder.Decode(&params)
+		if err != nil {
+			log.Printf("Error decoding parameters: %s", err)
 			httperrors.Write(w, httperrors.BadRequestErr)
 			return
 		}
@@ -81,16 +112,15 @@ func PostHandler() http.HandlerFunc {
 			httperrors.Write(w,*verr)
 			return
 		}
-
 		newChirp, err := database.Chirps.CreateChirp(
 			r.Context(),
 			database.CreateChirpParams{
 				Body: replaceBadWords(params.Body),
-				UserID: uid,
+				UserID: userID,
 			},
 		)
 		if err != nil {
-			log.Printf("Error creating User: %s", err)
+			log.Printf("Error creating Chirp: %s", err)
 			httperrors.Write(w, httperrors.InternalServerErr)
 		}
 

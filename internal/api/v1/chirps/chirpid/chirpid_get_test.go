@@ -13,7 +13,7 @@ import (
 )
 
 func TestGetChirpID(t *testing.T) {
-	test_url := testhelpers.InitTest(t)
+	test_url, _ := testhelpers.InitTest(t)
 	user, _ := testhelpers.CreateUser(testhelpers.NewUser{})
 	chirp, _ := testhelpers.CreateChirp(database.CreateChirpParams{
 		Body: "existentuuid",
