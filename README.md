@@ -212,6 +212,7 @@ You can optionally filter by author using the authorId query parameter.
 | Parameter  | Type   | Required | Description                                                     |
 | ---------- | ------ | -------- | --------------------------------------------------------------- |
 | `authorId` | string | ❌ No    | Filters the chirps to only those created by the specified user. |
+| `sort` | string | ❌ No    | Sort the chirps ascending (sort=asc) and descending (sort=desc) |
 
 ##### Example
 
